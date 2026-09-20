@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="多楼栋、多角色施工材料物流决策协同Agent公开演示版" />
+    <meta property="og:title" content="施工现场材料物流决策协同Agent V2.4" />
+    <meta property="og:description" content="面向多楼栋施工现场的材料需求、堆场、道路、角色审核与变化影响协同Demo。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://husir-2025.github.io/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="施工现场材料物流决策协同Agent V2" />
+    <meta name="twitter:description" content="多楼栋 · 多角色 · 动态决策闭环" />
+    <meta name="twitter:image" content="https://husir-2025.github.io/og.jpg" />
+    <title>施工现场材料物流决策协同Agent V2.4</title>
+    <script type="module" crossorigin src="/assets/index-sRNmNxek.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CZRYOvgu.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand-block">
+        <span class="brand-mark" aria-hidden="true">CM</span>
+        <div>
+          <span class="brand-eyebrow">Construction Material Agent V2.4</span>
+          <h1>施工现场材料物流决策协同Agent</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="runtime-indicator"><span></span><b id="runtimeStatus">浏览器确定性内核</b></div>
+        <button id="guideButton" class="header-help-button" type="button">使用说明</button>
+        <label class="role-control">
+          <span>演示角色</span>
+          <select id="roleSelect" aria-label="切换演示角色"></select>
+        </label>
+      </div>
+    </header>
+
+    <div class="simulation-banner">
+      <strong>模拟数据</strong>
+      <span id="dataNotice">参数化模拟数据，仅用于比赛Demo演示</span>
+      <span id="roleScope">项目经理｜全项目</span>
+    </div>
+
+    <nav class="app-nav" aria-label="主要功能">
+      <div id="primaryNavigation" class="primary-navigation"></div>
+      <button id="moreViewsButton" class="more-views-button" type="button" aria-haspopup="dialog">更多功能</button>
+    </nav>
+
+    <main id="content" class="app-content"></main>
+
+    <footer class="app-footer">
+      <span>比赛演示级系统，不代替施工组织设计、专项方案、安全复核或现场指挥。</span>
+      <span>数据版本：C_DEMO_4T11F_2026-08_V1.0</span>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="confirmDialog" class="app-dialog confirm-dialog">
+      <form method="dialog">
+        <div class="dialog-heading"><div><span class="section-kicker danger-text">异常输入复核</span><h2 id="confirmTitle">请确认后继续</h2></div><button class="icon-close" value="cancel" aria-label="关闭">×</button></div>
+        <div id="confirmMessages" class="warning-list"></div>
+        <p class="dialog-note">确认仅表示继续本次演示计算，不代表完成施工技术、安全或商务审批。</p>
+        <div class="dialog-actions"><button class="secondary-button" value="cancel">返回修改</button><button id="confirmProceed" class="primary-button" value="default">确认并继续</button></div>
+      </form>
+    </dialog>
+    <dialog id="complianceDialog" class="app-dialog compliance-dialog">
+      <form method="dialog">
+        <div class="dialog-heading"><div><span class="section-kicker danger-text">A类规则阻断</span><h2>当前流程已暂停</h2></div><button class="icon-close" value="terminate" aria-label="关闭">×</button></div>
+        <p class="dialog-note">以下项目未通过规范或项目硬控制。Agent不会继续评分、规划路线或生成放行方案。</p>
+        <div id="complianceViolations" class="compliance-violations"></div>
+        <div class="dialog-actions"><button class="secondary-button" value="modify">返回修改</button><button class="secondary-button" value="escalate">提交特殊审批</button><button class="primary-button compact-primary" value="terminate">终止操作</button></div>
+      </form>
+    </dialog>
+    <dialog id="guideDialog" class="app-dialog guide-dialog">
+      <form method="dialog">
+        <div class="dialog-heading"><div><span class="section-kicker">操作与名词说明</span><h2>施工材料物流决策协同Agent使用说明</h2></div><button class="icon-close" value="cancel" aria-label="关闭">×</button></div>
+        <div id="guideContent"></div>
+      </form>
+    </dialog>
+    <dialog id="simulationDialog" class="app-dialog simulation-dialog">
+      <form id="simulationForm" method="dialog">
+        <div class="dialog-heading"><div><span class="section-kicker danger-text">演示模拟模式</span><h2>现场场景模拟面板</h2></div><button class="icon-close" value="cancel" aria-label="关闭">×</button></div>
+        <p class="dialog-note">本面板只生成参数化模拟终端数据，不连接真实摄像机、地磅或设备。</p>
+        <label>模拟场景<select id="simulationScenario"><option value="weighbridge_arrival">车辆过磅进场</option><option value="yard_overflow">堆场越界/占用增加</option><option value="road_blocked">道路临时封堵</option><option value="fire_lane_blocked">消防通道占用</option><option value="safety_entry">危险区域违规进入</option><option value="lifting_fault">垂直运输设备故障</option></select></label>
+        <div class="simulation-optional" id="simulationOptional"><label>材料类型<select id="simulationMaterial"><option value="rebar">钢筋</option><option value="formwork">模板</option><option value="AAC_block">蒸压加气混凝土砌块</option><option value="dry_mortar">袋装干混砂浆</option></select></label><label>过磅数量(t)<input id="simulationQuantity" type="number" min="0.1" step="0.1" value="24"></label></div>
+        <div class="simulation-flow"><span>终端采集</span><i></i><span>待复核</span><i></i><span>决策调整</span><i></i><span>审批留痕</span></div>
+        <div class="dialog-actions"><button class="secondary-button" value="cancel">取消</button><button id="triggerSimulation" class="primary-button" value="default">触发模拟事件</button></div>
+      </form>
+    </dialog>
+    <dialog id="moreViewsDialog" class="app-dialog more-views-dialog">
+      <div class="dialog-shell">
+        <div class="dialog-heading"><div><span class="section-kicker">按需进入</span><h2>更多功能</h2><p>低频管理、追溯和配置功能统一收纳在这里。</p></div><button id="closeMoreViews" class="icon-close" type="button" aria-label="关闭">×</button></div>
+        <div id="moreViewButtons" class="more-view-grid"></div>
+      </div>
+    </dialog>
+    <dialog id="detailDialog" class="app-dialog detail-dialog">
+      <div class="dialog-shell">
+        <div class="dialog-heading"><div><span id="detailKicker" class="section-kicker">按需查看</span><h2 id="detailTitle">详细信息</h2></div><button id="closeDetailDialog" class="icon-close" type="button" aria-label="关闭">×</button></div>
+        <div id="detailContent" class="detail-content"></div>
+      </div>
+    </dialog>
+  </body>
+</html>

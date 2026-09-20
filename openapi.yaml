@@ -1,0 +1,442 @@
+openapi: 3.1.0
+info:
+  title: Construction Material Agent API
+  version: 2.4.0-demo
+  description: >-
+    V2 reserved API contract. The public webpage currently uses a deterministic
+    browser engine. A future authenticated service can implement these routes
+    without changing the web, mobile, or WeCom-facing request objects.
+servers:
+  - url: https://api.example.invalid
+    description: Placeholder only; no production service is configured.
+paths:
+  /v1/site-state:
+    get:
+      summary: Read role-scoped site state
+      parameters:
+        - in: query
+          name: role_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current site state filtered by role scope
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteStateResponse" }
+  /v1/decisions:
+    post:
+      summary: Run a material placement and logistics decision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DecisionRequestEnvelope" }
+      responses:
+        "200":
+          description: Explainable deterministic decision
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DecisionResponse" }
+        "422": { description: Invalid or incomplete input }
+  /v1/ai-configuration:
+    put:
+      summary: Select an approved decision-explanation model connection
+      description: >-
+        API credentials are configured only in the server environment. The
+        selected model cannot override safety rules or feasibility results.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiConfigurationRequest" }
+      responses:
+        "200": { description: Connection selection and readiness state }
+        "422": { description: Unsupported model connection }
+  /v1/ai/briefs:
+    post:
+      summary: Generate an evidence-grounded coordination brief
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actor_role, focus, decision_id]
+              properties:
+                actor_role: { type: string }
+                focus: { type: string, enum: [overall, route, supply, risk] }
+                decision_id: { type: string }
+      responses:
+        "200": { description: Brief grounded in the referenced decision and current role-scoped state }
+        "409": { description: Selected external model is not configured; deterministic brief may be returned explicitly }
+  /v1/inventory:
+    get:
+      summary: Read role-scoped yard inventory and occupied area
+      parameters:
+        - in: query
+          name: role_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Inventory lines and yard area summary }
+  /v1/material-calls:
+    get:
+      summary: Read role-scoped material call history
+      parameters:
+        - in: query
+          name: role_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Planned, executing, and completed material calls }
+    post:
+      summary: Register a material call or delivery status update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaterialCallRequest" }
+      responses:
+        "201": { description: Material call recorded with actor and source }
+        "403": { description: Actor is outside the permitted building scope }
+  /v1/events:
+    post:
+      summary: Submit a field change and calculate its impact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventRequestEnvelope" }
+      responses:
+        "200": { description: Change request, impact preview, and workflow status }
+        "403": { description: Actor is outside the permitted role scope }
+  /v1/approvals/{change_id}:
+    post:
+      summary: Approve or reject a change request
+      parameters:
+        - in: path
+          name: change_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actor_role, decision]
+              properties:
+                actor_role: { type: string }
+                decision: { type: string, enum: [approve, reject] }
+                note: { type: string }
+      responses:
+        "200": { description: Updated approval and effective decision version }
+        "403": { description: Actor has no approval permission }
+  /v1/tasks:
+    get:
+      summary: Read role-scoped mobile or WeCom tasks
+      parameters:
+        - in: query
+          name: role_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Pending tasks and notification payloads }
+  /v1/tasks/{task_id}/claim:
+    post:
+      summary: Claim a building-scoped work package
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actor_role]
+              properties:
+                actor_role: { type: string }
+      responses:
+        "200": { description: Work package claimed by the responsible building role }
+        "403": { description: Actor is outside the task building scope }
+  /v1/source-documents:
+    post:
+      summary: Register project source metadata and structured extraction results
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SourceDocumentRequest" }
+      responses:
+        "202": { description: Source registered and awaiting structured review or confirmation }
+  /v1/observations:
+    post:
+      summary: Receive an observation from a camera or vision service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VisionObservation" }
+      responses:
+        "202": { description: Observation stored pending responsible-person confirmation }
+  /v1/observations/{observation_id}/confirm:
+    post:
+      summary: Confirm a visual observation and convert it to a field change
+      parameters:
+        - in: path
+          name: observation_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actor_role, confirmed]
+              properties:
+                actor_role: { type: string }
+                confirmed: { type: boolean }
+                measured_value: { type: number }
+                note: { type: string }
+      responses:
+        "200": { description: Observation confirmed and linked change created }
+        "403": { description: Actor is not the responsible role }
+  /v1/terminals:
+    get:
+      summary: Read registered site terminals and connection status
+      responses:
+        "200": { description: Weighbridge, camera, lifting-equipment, access-control, and document-system terminals }
+  /v1/terminal-events:
+    post:
+      summary: Receive one normalized terminal packet
+      description: Terminal data is recorded first and cannot directly issue a site instruction.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TerminalPacket" }
+      responses:
+        "202": { description: Packet accepted, cached, discarded by threshold, or converted to a pending event }
+  /v1/terminal-cache/sync:
+    post:
+      summary: Retry locally cached terminal packets after connection recovery
+      responses:
+        "200": { description: Cache synchronization summary with retained failures }
+  /v1/inbound-batches:
+    post:
+      summary: Register a material batch from a weighbridge or manual receipt
+      responses:
+        "201": { description: Batch created pending material-manager confirmation }
+  /v1/inbound-batches/{batch_id}/confirm:
+    post:
+      summary: Confirm material identity and quantity before running a decision
+      parameters:
+        - { in: path, name: batch_id, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Batch confirmed and linked to a deterministic placement decision }
+        "403": { description: Actor is not permitted to confirm inbound batches }
+  /v1/perception-events:
+    get:
+      summary: Read role-scoped pending and reviewed perception events
+      responses:
+        "200": { description: Events include source, confidence, evidence pointer, responsible role, and review status }
+  /v1/perception-events/{event_id}/impact:
+    get:
+      summary: Preview the possible decision impact without changing effective site state
+      parameters:
+        - { in: path, name: event_id, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Impact preview and required review workflow }
+  /v1/perception-events/{event_id}/review:
+    post:
+      summary: Confirm or reject a perception event
+      description: Confirmed events enter the existing change-and-approval workflow; false positives are archived.
+      parameters:
+        - { in: path, name: event_id, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Review result, linked change, and traceability chain }
+        "403": { description: Actor is not the responsible role }
+  /v1/standards:
+    get:
+      summary: Search the approved offline standards library
+      parameters:
+        - { in: query, name: role_id, required: true, schema: { type: string } }
+        - { in: query, name: query, schema: { type: string } }
+        - { in: query, name: classification, schema: { type: string, enum: [A, B] } }
+        - { in: query, name: category, schema: { type: string } }
+      responses:
+        "200": { description: Approved standard metadata, clauses, verification status, and local document reference }
+  /v1/standard-submissions:
+    post:
+      summary: Submit a manually verified standard clause or project rule
+      description: Uploaded nonstandard files are not automatically parsed into effective clauses.
+      responses:
+        "202": { description: Pending human review; not used by decisions yet }
+        "403": { description: Actor has no standard submission permission }
+  /v1/standard-submissions/{submission_id}/review:
+    post:
+      summary: Approve or reject a standard-library submission
+      description: An A-class automated rule must include an explicit field, comparison operator, and limit.
+      parameters:
+        - { in: path, name: submission_id, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Reviewed submission and effective library version }
+        "403": { description: Actor has no standard approval permission }
+  /v1/compliance-escalations:
+    post:
+      summary: Escalate a blocked compliance input for human handling
+      description: This endpoint records an escalation and never bypasses an A-class hard constraint.
+      responses:
+        "202": { description: Escalation recorded; decision remains blocked }
+  /v1/audit-records:
+    get:
+      summary: Read role-scoped append-only operation records
+      responses:
+        "200": { description: Operation records with before/after values, responsibility boundary, and chain verification fields }
+  /v1/decision-records:
+    get:
+      summary: Read role-scoped Agent decision records
+      responses:
+        "200": { description: Preconditions, decision content, standards and logic, approval state, and execution result }
+  /v1/learning/reports:
+    post:
+      summary: Generate generic-layer and project-layer review proposals
+      description: Proposals never activate automatically and cannot modify A-class hard rules.
+      responses:
+        "202": { description: Report and pending proposals generated }
+        "403": { description: Actor has no review-report permission }
+  /v1/learning/proposals/{proposal_id}/review:
+    post:
+      summary: Approve or reject a controlled optimization proposal
+      parameters:
+        - { in: path, name: proposal_id, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Proposal reviewed and permitted soft configuration updated if approved }
+        "409": { description: Proposal attempts to change a protected hard rule }
+components:
+  schemas:
+    TerminalPacket:
+      type: object
+      required: [terminal_id, terminal_type, captured_at, payload]
+      properties:
+        terminal_id: { type: string }
+        terminal_type:
+          type: string
+          enum: [weighbridge, fixed_camera, lifting_equipment, access_control, document_system]
+        captured_at: { type: string, format: date-time }
+        online: { type: boolean, default: true }
+        payload: { type: object, additionalProperties: true }
+    AiConfigurationRequest:
+      type: object
+      required: [actor_role, model_id]
+      properties:
+        actor_role: { type: string }
+        model_id:
+          type: string
+          enum: [deterministic_core, openai_gpt, google_gemini, deepseek_api, qwen_api, ollama_local]
+        endpoint_alias:
+          type: string
+          description: Server-side endpoint alias only; never send an API key from the browser.
+    MaterialCallRequest:
+      type: object
+      required: [actor_role, building_id, material_type, quantity, unit, from_yard, status]
+      properties:
+        actor_role: { type: string }
+        building_id: { type: string }
+        workface_id: { type: string }
+        material_type: { type: string }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unit: { type: string }
+        from_yard: { type: string }
+        horizontal_equipment: { type: string }
+        vertical_equipment: { type: string }
+        planned_day: { type: integer, minimum: 1 }
+        status: { type: string, enum: [planned, in_transit, delivered, cancelled] }
+        source: { type: string }
+    SourceDocumentRequest:
+      type: object
+      required: [actor_role, document_type, file_name]
+      properties:
+        actor_role: { type: string }
+        document_type:
+          type: string
+          enum: [construction_organization_design, construction_schedule, material_requirement_plan, site_layout_plan, lifting_equipment_plan]
+        file_name: { type: string }
+        content_pointer: { type: string, description: Reference to secured object storage; do not send browser-local paths. }
+        extracted_demands:
+          type: array
+          items:
+            type: object
+            required: [building_id, material_type, quantity, planned_day, urgency_level]
+            properties:
+              building_id: { type: string }
+              material_type: { type: string }
+              quantity: { type: number, minimum: 0 }
+              planned_day: { type: integer, minimum: 1 }
+              urgency_level: { type: string, enum: [routine, attention, urgent, immediate] }
+    VisionObservation:
+      type: object
+      required: [camera_id, observation_type, target_id, confidence, observed_at]
+      properties:
+        camera_id: { type: string }
+        observation_type:
+          type: string
+          enum: [yard_occupancy_high, road_obstruction, material_location_anomaly, out_of_boundary_stack]
+        target_id: { type: string }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        observed_at: { type: string, format: date-time }
+        image_pointer: { type: string }
+        estimated_value: { type: number, description: Observation only; requires field confirmation before use. }
+    DecisionRequestEnvelope:
+      type: object
+      required: [actor_role, request]
+      properties:
+        actor_role: { type: string }
+        request: { $ref: "#/components/schemas/DecisionRequest" }
+    DecisionRequest:
+      type: object
+      required: [material, quantity, targets]
+      properties:
+        requestId: { type: string }
+        material: { type: string }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        targets: { type: array, items: { type: string } }
+        vehicle: { type: string, default: auto }
+        horizon: { type: integer, minimum: 1, maximum: 14, default: 3 }
+    EventRequestEnvelope:
+      type: object
+      required: [actor_role, event]
+      properties:
+        actor_role: { type: string }
+        event:
+          type: object
+          required: [type, targetId, payload]
+          properties:
+            type: { type: string }
+            targetId: { type: string }
+            payload: { type: object, additionalProperties: true }
+            requiresReplan: { type: boolean, default: true }
+    DecisionResponse:
+      type: object
+      required: [status, stateVersion, trace]
+      properties:
+        status: { type: string }
+        stateVersion: { type: integer }
+        recommendation: { type: [object, "null"] }
+        alternatives: { type: array, items: { type: object } }
+        routes: { type: object }
+        dispatch: { type: array, items: { type: object } }
+        metrics: { type: object }
+        trace: { type: array, items: { type: object } }
+    SiteStateResponse:
+      type: object
+      required: [role, state, visibleBuildingIds]
+      properties:
+        role: { type: object }
+        state: { type: object }
+        visibleBuildingIds: { type: array, items: { type: string } }
